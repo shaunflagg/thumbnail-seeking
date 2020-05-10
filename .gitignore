@@ -3,6 +3,7 @@
 .pydevproject
 .idea
 thumbs/
+videos/
 githubify.pl
 myvideofile.mp4
 *.bak

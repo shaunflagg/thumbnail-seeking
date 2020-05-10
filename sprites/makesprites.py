@@ -17,7 +17,6 @@ from dateutil import relativedelta
 #               optional: sips (comes with MacOSX) - yields slightly smaller sprites
 #    download ImageMagick: http://www.imagemagick.org/script/index.php OR http://www.imagemagick.org/script/binary-releases.php (on MacOSX: "sudo port install ImageMagick")
 #    download ffmpeg: http://www.ffmpeg.org/download.html
-# jwplayer reference: http://www.longtailvideo.com/support/jw-player/31778/adding-tooltip-thumbnails/
 #
 # TESTING NOTES: Tested putting time gaps between thumbnail segments, but had no visual effect in JWplayer, so omitted.
 #                Tested using an offset so that thumbnail would show what would display mid-way through clip rather than for the 1st second of the clip, but was not an improvement.
