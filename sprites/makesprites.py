@@ -25,9 +25,9 @@ from dateutil import relativedelta
 # TODO determine optimal number of images/segment distance based on length of video? (so longer videos don't have huge sprites)
 
 USE_SIPS = False  # True to use sips if using MacOSX (creates slightly smaller sprites), else set to False to use ImageMagick
-THUMB_RATE_SECONDS = 2  # every Nth second take a snapshot
-THUMB_WIDTH = 100  # 100-150 is width recommended by JWPlayer; I like smaller files
-SKIP_FIRST = True  # True to skip a thumbnail of second 1; often not a useful image, plus JWPlayer doesn't seem to show it anyway, and user knows beginning without needing preview
+THUMB_RATE_SECONDS = 1  # every Nth second take a snapshot
+THUMB_WIDTH = 200  # 100-150 is recommended width; I like smaller files
+SKIP_FIRST = False  # True to skip a thumbnail of second 1; often not a useful image, plus user knows beginning without needing preview
 SPRITE_NAME = "sprite.jpg"  # jpg is much smaller than png, so using jpg
 VTTFILE_NAME = "thumbs.vtt"
 THUMB_OUTDIR = "thumbs"
@@ -37,7 +37,7 @@ logger = logging.getLogger(sys.argv[0])
 logSetup = False
 
 
-class SpriteTask():
+class SpriteTask:
     """small wrapper class as convenience accessor for external scripts"""
 
     def __init__(self, videofile):
@@ -58,7 +58,7 @@ class SpriteTask():
     def getVideoFile(self):
         return self.videofile
 
-    def getOutdir(self):
+    def getOutDir(self):
         return self.outdir
 
     def getSpriteFile(self):
@@ -221,10 +221,18 @@ def get_time_str(numseconds, adjust=None):
     return "%02d:%02d:%02d.000" % (delta.hours, delta.minutes, delta.seconds)
 
 
+# def get_grid_coordinates(imgnum, gridsize, w, h):
+#     """ given an image number in our sprite, map the coordinates to it in X,Y,W,H format"""
+#     y = (imgnum - 1) / gridsize
+#     x = (imgnum - 1) - (y * gridsize)
+#     imgx = x * w
+#     imgy = y * h
+#     return "%s,%s,%s,%s" % (imgx, imgy, w, h)
+
 def get_grid_coordinates(imgnum, gridsize, w, h):
     """ given an image number in our sprite, map the coordinates to it in X,Y,W,H format"""
-    y = (imgnum - 1) / gridsize
-    x = (imgnum - 1) - (y * gridsize)
+    y = int((imgnum - 1) / gridsize)
+    x = int((imgnum - 1) - (y * gridsize))
     imgx = x * w
     imgy = y * h
     return "%s,%s,%s,%s" % (imgx, imgy, w, h)
@@ -236,6 +244,10 @@ def makesprite(outdir, spritefile, coords, gridsize):
            NOT USING: convert tv*.jpg +append sprite.jpg     #SINGLE HORIZONTAL LINE of images
      base the sprite size on the number of thumbs we need to make into a grid."""
     grid = "%dx%d" % (gridsize, gridsize)
+    print('gridsize:', gridsize)
+    print('outdir:', outdir)
+    print('coords:', coords)
+    print('spritefile:', spritefile)
     cmd = "montage %s/tv*.jpg -tile %s -geometry %s %s" % (pipes.quote(outdir), grid, coords, pipes.quote(
         spritefile))  # if video had more than 144 thumbs, would need to be bigger grid, making it big to cover all our case
     doCmd(cmd)
@@ -268,7 +280,7 @@ def run(task, thumbRate=None):
     addLogging()
     if not thumbRate:
         thumbRate = THUMB_RATE_SECONDS
-    outdir = task.getOutdir()
+    outdir = task.getOutDir()
     spritefile = task.getSpriteFile()
 
     # create snapshots
