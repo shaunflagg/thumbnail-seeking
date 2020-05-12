@@ -7,7 +7,7 @@ Reference idea author [vlanard](https://github.com/vlanard)
 Components
 ============
 
-Written on Python 3
+Written on [Python 3.7.5](https://www.python.org/downloads/release/python-375/)
 
 Required dependencies (expected in PATH):
 * ffmpeg [download here](http://www.ffmpeg.org/download.html)
