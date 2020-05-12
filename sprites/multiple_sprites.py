@@ -26,7 +26,8 @@ from dateutil import relativedelta
 
 USE_SIPS = False  # True to use sips if using MacOSX (creates slightly smaller sprites), else set to False to use ImageMagick
 THUMB_RATE_SECONDS = 10  # every Nth second take a snapshot
-THUMB_WIDTH = 200  # 100-150 is recommended width; I like smaller files
+THUMB_WIDTH = 160  # 100-150 is recommended width; I like smaller files
+MAX_GRID_SIZE = 6  # Single sprite max grid size
 SKIP_FIRST = False  # True to skip a thumbnail of second 1; often not a useful image, plus user knows beginning without needing preview
 SPRITE_NAME = "sprite.jpg"  # jpg is much smaller than png, so using jpg
 VTTFILE_NAME = "thumbs.vtt"
@@ -40,58 +41,58 @@ logSetup = False
 class SpriteTask:
     """small wrapper class as convenience accessor for external scripts"""
 
-    def __init__(self, videofile):
-        self.remotefile = videofile.startswith("http")
-        if not self.remotefile and not os.path.exists(videofile):
-            sys.exit("File does not exist: %s" % videofile)
-        basefile = os.path.basename(videofile)
-        basefile_nospeed = removespeed(basefile)  # strip trailing speed suffix from file/dir names, if present
-        newoutdir = makeOutDir(basefile_nospeed)
-        fileprefix, ext = os.path.splitext(basefile_nospeed)
-        spritefile = os.path.join(newoutdir, "%s_%s" % (fileprefix, SPRITE_NAME))
-        vttfile = os.path.join(newoutdir, "%s_%s" % (fileprefix, VTTFILE_NAME))
-        self.videofile = videofile
-        self.vttfile = vttfile
-        self.spritefile = spritefile
-        self.outdir = newoutdir
+    def __init__(self, video_file):
+        self.remote_file = video_file.startswith("http")
+        if not self.remote_file and not os.path.exists(video_file):
+            sys.exit("File does not exist: %s" % video_file)
+        base_file = os.path.basename(video_file)
+        base_file_no_speed = remove_speed(base_file)  # strip trailing speed suffix from file/dir names, if present
+        new_out_dir = makeOutDir(base_file_no_speed)
+        file_prefix, ext = os.path.splitext(base_file_no_speed)
+        sprite_file = os.path.join(new_out_dir, "%s_%s" % (file_prefix, SPRITE_NAME))
+        vtt_file = os.path.join(new_out_dir, "%s_%s" % (file_prefix, VTTFILE_NAME))
+        self.video_file = video_file
+        self.vtt_file = vtt_file
+        self.sprite_file = sprite_file
+        self.out_dir = new_out_dir
 
     def getVideoFile(self):
-        return self.videofile
+        return self.video_file
 
     def getOutDir(self):
-        return self.outdir
+        return self.out_dir
 
     def getSpriteFile(self):
-        return self.spritefile
+        return self.sprite_file
 
     def getVTTFile(self):
-        return self.vttfile
+        return self.vtt_file
 
 
-def makeOutDir(videofile):
+def makeOutDir(video_file):
     """create unique output dir based on video file name and current timestamp"""
-    base, ext = os.path.splitext(videofile)
+    base, ext = os.path.splitext(video_file)
     script = sys.argv[0]
-    basepath = os.path.dirname(
+    base_path = os.path.dirname(
         os.path.abspath(script))  # make output dir always relative to this script regardless of shell directory
     if len(THUMB_OUTDIR) > 0 and THUMB_OUTDIR[0] == '/':
-        outputdir = THUMB_OUTDIR
+        output_dir = THUMB_OUTDIR
     else:
-        outputdir = os.path.join(basepath, THUMB_OUTDIR)
+        output_dir = os.path.join(base_path, THUMB_OUTDIR)
     if USE_UNIQUE_OUTDIR:
-        newoutdir = "%s.%s" % (os.path.join(outputdir, base), datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+        new_out_dir = "%s.%s" % (os.path.join(output_dir, base), datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
     else:
-        newoutdir = "%s_%s" % (os.path.join(outputdir, base), "vtt")
-    if not os.path.exists(newoutdir):
-        logger.info("Making dir: %s" % newoutdir)
-        os.makedirs(newoutdir)
-    elif os.path.exists(newoutdir) and not USE_UNIQUE_OUTDIR:
-        # remove previous contents if reusing outdir
-        files = os.listdir(newoutdir)
-        print("Removing previous contents of output directory: %s" % newoutdir)
+        new_out_dir = "%s_%s" % (os.path.join(output_dir, base), "vtt")
+    if not os.path.exists(new_out_dir):
+        logger.info("Making dir: %s" % new_out_dir)
+        os.makedirs(new_out_dir)
+    elif os.path.exists(new_out_dir) and not USE_UNIQUE_OUTDIR:
+        # remove previous contents if reusing out dir
+        files = os.listdir(new_out_dir)
+        print("Removing previous contents of output directory: %s" % new_out_dir)
         for f in files:
-            os.unlink(os.path.join(newoutdir, f))
-    return newoutdir
+            os.unlink(os.path.join(new_out_dir, f))
+    return new_out_dir
 
 
 def doCmd(cmd, logger=logger):  # execute a shell command and return/print its output
@@ -103,23 +104,23 @@ def doCmd(cmd, logger=logger):  # execute a shell command and return/print its o
     except Exception as e:
         ret = "ERROR   [%s] An exception occurred\n%s\n%s" % (datetime.datetime.now(), output, str(e))
         logger.error(ret)
-        raise e  # todo ?
+        raise e
     ret = "END   [%s]\n%s" % (datetime.datetime.now(), output)
     logger.info(ret)
     sys.stdout.flush()
     return output
 
 
-def takesnaps(videofile, newoutdir, thumbRate=None):
+def take_snaps(video_file, newoutdir, thumb_rate=None):
     """
     take snapshot image of video every Nth second and output to sequence file names and custom directory
         reference: https://trac.ffmpeg.org/wiki/Create%20a%20thumbnail%20image%20every%20X%20seconds%20of%20the%20video
     """
-    if not thumbRate:
-        thumbRate = THUMB_RATE_SECONDS
-    rate = "1/%d" % thumbRate  # 1/60=1 per minute, 1/120=1 every 2 minutes
+    if not thumb_rate:
+        thumb_rate = THUMB_RATE_SECONDS
+    rate = "1/%d" % thumb_rate  # 1/60=1 per minute, 1/120=1 every 2 minutes
     cmd = "ffmpeg -i %s -f image2 -bt 20M -vf fps=%s -aspect 16:9 %s/tv%%03d.jpg" % (
-        pipes.quote(videofile), rate, pipes.quote(newoutdir))
+        pipes.quote(video_file), rate, pipes.quote(newoutdir))
     doCmd(cmd)
     if SKIP_FIRST:
         # remove the first image
@@ -133,6 +134,28 @@ def takesnaps(videofile, newoutdir, thumbRate=None):
 
 def get_thumb_images(newdir):
     return glob.glob("%s/tv*.jpg" % newdir)
+
+
+def optimize_sprites_optipng(files):
+    for file in files:
+        cmd = "optipng %s" % (pipes.quote(file))
+        doCmd(cmd)
+
+
+def optimize_sprites_jpegoptim(files, factor):
+    if factor:
+        for file in files:
+            cmd = "jpegoptim -m %s %s" % (factor, pipes.quote(file))
+            doCmd(cmd)
+    else:
+        for file in files:
+            cmd = "jpegoptim %s" % (pipes.quote(file))
+            doCmd(cmd)
+
+
+def get_sprite_images(sprite_file):
+    files_base_name, extension = os.path.splitext(sprite_file)
+    return glob.glob("%s*%s" % (files_base_name, extension))
 
 
 def resize(files):
@@ -160,55 +183,40 @@ def get_geometry(file):
     return parts[0].strip()  # return just the geometry prefix of the line, sans extra whitespace
 
 
-def makevtt(spritefile, numsegments, coords, gridsize, writefile, thumbRate=None):
+def makevtt(sprite_files, num_segments, coords, grid_size, writefile, thumb_rate=None):
     """generate & write vtt file mapping video time to each image's coordinates
     in our spritemap"""
-    # split geometry string into individual parts
-    ##4200x66+0+0     ===  WxH+X+Y
-    if not thumbRate:
-        thumbRate = THUMB_RATE_SECONDS
+    if not thumb_rate:
+        thumb_rate = THUMB_RATE_SECONDS
     wh, xy = coords.split("+", 1)
     w, h = wh.split("x")
     w = int(w)
     h = int(h)
-    # x,y = xy.split("+")
-    # ======= SAMPLE WEBVTT FILE=====
-    # WEBVTT
-    #
-    # 00:00.000 --> 00:05.000
-    # /assets/thumbnails.jpg#xywh=0,0,160,90
-    #
-    # 00:05.000 --> 00:10.000
-    # /assets/preview2.jpg#xywh=160,0,320,90
-    #
-    # 00:10.000 --> 00:15.000
-    # /assets/preview3.jpg#xywh=0,90,160,180
-    #
-    # 00:15.000 --> 00:20.000
-    # /assets/preview4.jpg#xywh=160,90,320,180
-    # ==== END SAMPLE ========
-    basefile = os.path.basename(spritefile)
+
     vtt = ["WEBVTT", ""]  # line buffer for file contents
     if SKIP_FIRST:
-        clipstart = thumbRate  # offset time to skip the first image
+        clipstart = thumb_rate  # offset time to skip the first image
     else:
         clipstart = 0
-    # NOTE - putting a time gap between thumbnail end & next start has no visual effect in JWPlayer, so not doing it.
-    clipend = clipstart + thumbRate
-    adjust = thumbRate * TIMESYNC_ADJUST
-    for imgnum in range(1, numsegments + 1):
-        xywh = get_grid_coordinates(imgnum, gridsize, w, h)
-        start = get_time_str(clipstart, adjust=adjust)
-        end = get_time_str(clipend, adjust=adjust)
-        clipstart = clipend
-        clipend += thumbRate
-        vtt.append("Img %d" % imgnum)
-        vtt.append("%s --> %s" % (start, end))  # 00:00.000 --> 00:05.000
-        vtt.append("%s#xywh=%s" % (basefile, xywh))
-        vtt.append("")  # Linebreak
+
+    clipend = clipstart + thumb_rate
+    adjust = thumb_rate * TIMESYNC_ADJUST
+
+    for sprite_file in sprite_files:
+        base_file = os.path.basename(sprite_file)
+        for img_num in range(1, num_segments + 1):
+            xywh = get_grid_coordinates(img_num - 1, grid_size, w, h)
+            start = get_time_str(clipstart, adjust=adjust)
+            end = get_time_str(clipend, adjust=adjust)
+            clipstart = clipend
+            clipend += thumb_rate
+            # vtt.append("Img %d" % img_num)
+            vtt.append("%s --> %s" % (start, end))  # 00:00.000 --> 00:05.000
+            vtt.append("%s#xywh=%s" % (base_file, xywh))
+            vtt.append("")  # Linebreak
     vtt = "\n".join(vtt)
     # output to file
-    writevtt(writefile, vtt)
+    write_vtt(writefile, vtt)
 
 
 def get_time_str(numseconds, adjust=None):
@@ -229,13 +237,13 @@ def get_time_str(numseconds, adjust=None):
 #     imgy = y * h
 #     return "%s,%s,%s,%s" % (imgx, imgy, w, h)
 
-def get_grid_coordinates(imgnum, gridsize, w, h):
+def get_grid_coordinates(img_num, grid_size, w, h):
     """ given an image number in our sprite, map the coordinates to it in X,Y,W,H format"""
-    y = int((imgnum - 1) / gridsize)
-    x = int((imgnum - 1) - (y * gridsize))
-    imgx = x * w
-    imgy = y * h
-    return "%s,%s,%s,%s" % (imgx, imgy, w, h)
+    y = int(img_num / grid_size)
+    x = int(img_num - (y * grid_size))
+    img_x = x * w
+    img_y = y * h
+    return "%s,%s,%s,%s" % (img_x, img_y, w, h)
 
 
 def makesprite(outdir, spritefile, coords, gridsize):
@@ -244,59 +252,101 @@ def makesprite(outdir, spritefile, coords, gridsize):
            NOT USING: convert tv*.jpg +append sprite.jpg     #SINGLE HORIZONTAL LINE of images
      base the sprite size on the number of thumbs we need to make into a grid."""
     grid = "%dx%d" % (gridsize, gridsize)
-    print('gridsize:', gridsize)
-    print('outdir:', outdir)
-    print('coords:', coords)
-    print('spritefile:', spritefile)
-    cmd = "montage %s/tv*.jpg -tile %s -geometry %s %s" % (pipes.quote(outdir), grid, coords, pipes.quote(
-        spritefile))  # if video had more than 144 thumbs, would need to be bigger grid, making it big to cover all our case
+    cmd = "montage -background transparent %s/tv*.jpg -tile %s -geometry %s %s" % (pipes.quote(outdir), grid, coords, pipes.quote(spritefile))
     doCmd(cmd)
 
 
-def writevtt(vttfile, contents):
+def write_vtt(vtt_file, contents):
     """ output VTT file """
-    with open(vttfile, mode="w") as h:
-        h.write(contents)
-    logger.info("Wrote: %s" % vttfile)
+    with open(vtt_file, mode="w") as file:
+        file.write(contents)
+    logger.info("Wrote: %s" % vtt_file)
 
 
-def removespeed(videofile):
+def remove_speed(video_file):
     """some of my files are suffixed with datarate, e.g. myfile_3200.mp4;
      this trims the speed from the name since it's irrelevant to my sprite names (which apply regardless of speed);
      you won't need this if it's not relevant to your filenames"""
-    videofile = videofile.strip()
-    speed = videofile.rfind("_")
-    speedlast = videofile.rfind(".")
-    maybespeed = videofile[speed + 1:speedlast]
+    video_file = video_file.strip()
+    speed = video_file.rfind("_")
+    speed_last = video_file.rfind(".")
+    maybe_speed = video_file[speed + 1:speed_last]
     try:
-        int(maybespeed)
-        videofile = videofile[:speed] + videofile[speedlast:]
+        int(maybe_speed)
+        video_file = video_file[:speed] + video_file[speed_last:]
     except:
         pass
-    return videofile
+    return video_file
+
+
+def remove_old_thumb_files(files):
+    for file in files:
+        os.remove(file)
 
 
 def run(task, thumbRate=None):
-    addLogging()
+    # addLogging()
     if not thumbRate:
         thumbRate = THUMB_RATE_SECONDS
-    outdir = task.getOutDir()
+
+    out_dir = task.getOutDir()
     spritefile = task.getSpriteFile()
+    vid_file = task.getVideoFile()
 
     # create snapshots
-    numfiles, thumbfiles = takesnaps(task.getVideoFile(), outdir, thumbRate=thumbRate)
+    numfiles, thumbfiles = take_snaps(task.getVideoFile(), out_dir, thumb_rate=thumbRate)
+
     # resize them to be mini
     resize(thumbfiles)
 
-    # get coordinates from a resized file to use in spritemapping
-    gridsize = int(math.ceil(math.sqrt(numfiles)))
+    # get coordinates from a resized file to use in spritemapping]
+    if numfiles <= MAX_GRID_SIZE**2:
+        gridsize = int(math.ceil(math.sqrt(numfiles)))
+    else:
+        gridsize = MAX_GRID_SIZE
+
     coords = get_geometry(thumbfiles[0])  # use the first file (since they are all same size) to get geometry settings
 
+    # first_elem = 1
+    # last_elem = MAX_GRID_SIZE ** 2
+    # l = 0
+    #
+    # for i in range(0, numfiles, MAX_GRID_SIZE**2):
+    #     l += 1
+    #     if numfiles <= last_elem:
+    #         last_elem = numfiles
+    #         if last_elem == first_elem:
+    #             # print(first_elem)
+    #             break
+    #         print(first_elem, '->', last_elem)
+    #         grid = last_elem - first_elem + 1
+    #         spritefile2 = os.path.join(out_dir, "%02d%s" % (l, SPRITE_NAME))
+    #         gridsize1 = int(math.ceil(math.sqrt(grid)))
+    #         print(gridsize1)
+    #         makesprite(out_dir, spritefile2, coords, gridsize1)
+    #         break
+    #     print(first_elem, '->', last_elem)
+    #     first_elem = last_elem + 1
+    #     last_elem += MAX_GRID_SIZE**2
+    #     grid = last_elem - first_elem + 1
+    #     print(grid)
+    #     spritefile2 = os.path.join(out_dir, "%02d%s" % (l, SPRITE_NAME))
+    #     gridsize1 = int(math.ceil(math.sqrt(grid)))
+    #     makesprite(out_dir, spritefile2, coords, gridsize1)
+
     # convert small files into a single sprite grid
-    makesprite(outdir, spritefile, coords, gridsize)
+    makesprite(out_dir, spritefile, coords, gridsize)
+
+    sprites_array = get_sprite_images(spritefile)
+    sprites_array.sort()
+    # optimize_sprites_optipng(sprites_array)
+    optimize_sprites_jpegoptim(sprites_array, 50)
+
+    # Remove unneeded thumb files
+    remove_old_thumb_files(thumbfiles)
 
     # generate a vtt with coordinates to each image in sprite
-    makevtt(spritefile, numfiles, coords, gridsize, task.getVTTFile(), thumbRate=thumbRate)
+    makevtt(sprites_array, numfiles, coords, gridsize, task.getVTTFile(), thumb_rate=thumbRate)
 
 
 def addLogging():
