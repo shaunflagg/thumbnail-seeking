@@ -28,7 +28,7 @@ USE_SIPS = False  # True to use sips if using MacOSX (creates slightly smaller s
 THUMB_RATE_SECONDS = 10  # every Nth second take a snapshot
 THUMB_WIDTH = 160  # 100-150 is recommended width; I like smaller files
 MAX_GRID_SIZE = 6  # Single sprite max grid size
-SKIP_FIRST = False  # True to skip a thumbnail of second 1; often not a useful image, plus user knows beginning without needing preview
+SKIP_FIRST = True  # True to skip a thumbnail of second 1; often not a useful image, plus user knows beginning without needing preview
 SPRITE_NAME = "sprite.jpg"  # jpg is much smaller than png, so using jpg
 VTTFILE_NAME = "thumbs.vtt"
 THUMB_OUTDIR = "thumbs"
@@ -119,13 +119,13 @@ def take_snaps(video_file, newoutdir, thumb_rate=None):
     if not thumb_rate:
         thumb_rate = THUMB_RATE_SECONDS
     rate = "1/%d" % thumb_rate  # 1/60=1 per minute, 1/120=1 every 2 minutes
-    cmd = "ffmpeg -i %s -f image2 -bt 20M -vf fps=%s -aspect 16:9 %s/tv%%03d.jpg" % (
+    cmd = "ffmpeg -i %s -f image2 -bt 20M -vf fps=%s -aspect 16:9 %s/tv%%05d.jpg" % (
         pipes.quote(video_file), rate, pipes.quote(newoutdir))
     doCmd(cmd)
     if SKIP_FIRST:
         # remove the first image
         logger.info("Removing first image, unneeded")
-        os.unlink("%s/tv001.jpg" % newoutdir)
+        os.unlink("%s/tv00001.jpg" % newoutdir)
     count = len(os.listdir(newoutdir))
     logger.info("%d thumbs written in %s" % (count, newoutdir))
     # return the list of generated files
@@ -183,7 +183,7 @@ def get_geometry(file):
     return parts[0].strip()  # return just the geometry prefix of the line, sans extra whitespace
 
 
-def makevtt(sprite_files, num_segments, coords, grid_size, writefile, thumb_rate=None):
+def make_vtt(sprite_files, num_segments, coords, grid_size, writefile, thumb_rate=None):
     """generate & write vtt file mapping video time to each image's coordinates
     in our spritemap"""
     if not thumb_rate:
@@ -202,8 +202,10 @@ def makevtt(sprite_files, num_segments, coords, grid_size, writefile, thumb_rate
     clipend = clipstart + thumb_rate
     adjust = thumb_rate * TIMESYNC_ADJUST
 
-    for sprite_file in sprite_files:
-        base_file = os.path.basename(sprite_file)
+    sprites_count = len(sprite_files)
+
+    if sprites_count == 1:
+        base_file = os.path.basename(sprite_files[0])
         for img_num in range(1, num_segments + 1):
             xywh = get_grid_coordinates(img_num - 1, grid_size, w, h)
             start = get_time_str(clipstart, adjust=adjust)
@@ -214,6 +216,20 @@ def makevtt(sprite_files, num_segments, coords, grid_size, writefile, thumb_rate
             vtt.append("%s --> %s" % (start, end))  # 00:00.000 --> 00:05.000
             vtt.append("%s#xywh=%s" % (base_file, xywh))
             vtt.append("")  # Linebreak
+    else:
+        for img_num in range(1, num_segments + 1):
+            xywh = get_grid_coordinates(img_num - 1, grid_size, w, h)
+            start = get_time_str(clipstart, adjust=adjust)
+            end = get_time_str(clipend, adjust=adjust)
+            clipstart = clipend
+            clipend += thumb_rate
+            # vtt.append("Img %d" % img_num)
+            vtt.append("%s --> %s" % (start, end))  # 00:00.000 --> 00:05.000
+            file_index = math.floor(img_num/(grid_size**2))
+            base_file = os.path.basename(sprite_files[file_index])
+            vtt.append("%s#xywh=%s" % (base_file, xywh))
+            vtt.append("")  # Linebreak
+
     vtt = "\n".join(vtt)
     # output to file
     write_vtt(writefile, vtt)
@@ -291,7 +307,6 @@ def run(task, thumbRate=None):
 
     out_dir = task.getOutDir()
     spritefile = task.getSpriteFile()
-    vid_file = task.getVideoFile()
 
     # create snapshots
     numfiles, thumbfiles = take_snaps(task.getVideoFile(), out_dir, thumb_rate=thumbRate)
@@ -339,14 +354,16 @@ def run(task, thumbRate=None):
 
     sprites_array = get_sprite_images(spritefile)
     sprites_array.sort()
-    # optimize_sprites_optipng(sprites_array)
-    optimize_sprites_jpegoptim(sprites_array, 50)
+
+    # optimize_sprites_optipng(sprites_array)         # Just optimize
+    # optimize_sprites_jpegoptim(sprites_array, 50)   # Force file compression
+    optimize_sprites_jpegoptim(sprites_array, False)  # Just optimize
 
     # Remove unneeded thumb files
     remove_old_thumb_files(thumbfiles)
 
     # generate a vtt with coordinates to each image in sprite
-    makevtt(sprites_array, numfiles, coords, gridsize, task.getVTTFile(), thumb_rate=thumbRate)
+    make_vtt(sprites_array, numfiles, coords, gridsize, task.getVTTFile(), thumb_rate=thumbRate)
 
 
 def addLogging():
