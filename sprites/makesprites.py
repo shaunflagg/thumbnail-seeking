@@ -374,6 +374,19 @@ if __name__ == "__main__":
         sys.exit("Please pass the full path or url to the video file for which to create thumbnails.")
     if len(sys.argv) == 3:
         THUMB_OUT_DIR = sys.argv[2]
-    video_file = sys.argv[1]
-    task = SpriteTask(video_file)
-    run(task)
+    
+    # Check if need to process list of files
+    if sys.argv[1].endswith('.txt'):
+        process_queue = []
+        with open(sys.argv[1], 'r') as f:
+            process_queue = f.readlines()
+        for line in process_queue:
+            line = line.strip()
+            if line.startswith('#'):
+                continue
+            if len(line) > 0:
+                run(SpriteTask(line))
+    else:
+        video_file = sys.argv[1]
+        task = SpriteTask(video_file)
+        run(task)
