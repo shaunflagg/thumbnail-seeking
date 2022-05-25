@@ -2,8 +2,6 @@
 .project
 .pydevproject
 .idea
-thumbs/
-videos/
 logs/
 githubify.pl
 myvideofile.mp4
